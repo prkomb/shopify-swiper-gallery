@@ -1,0 +1,216 @@
+{% comment %}
+  This section is used in the product template to render product page with
+  media, content, and add-to-cart form.
+
+  https://shopify.dev/docs/storefronts/themes/architecture/templates/product
+{% endcomment %}
+
+<!-- Swiper CSS (already in assets, but CDN fallback) -->
+<link rel="stylesheet" href="{{ 'swiper-bundle.min.css' | asset_url }}">
+
+<!-- Swiper JS CDN -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Swiper/11.0.5/swiper-bundle.min.js"></script>
+
+<div class="product-images">
+  <div class="swiper" id="product-swiper">
+    <div class="swiper-wrapper">
+      {% for image in product.images %}
+        <div class="swiper-slide" data-variant-colors="{{ image.alt | escape }}">
+          {% render 'image', class: 'product-image', image: image %}
+        </div>
+      {% endfor %}
+    </div>
+    {% if section.settings.show_pagination %}
+      <div class="swiper-pagination"></div>
+    {% endif %}
+    {% if section.settings.show_navigation %}
+      <div class="swiper-button-prev"></div>
+      <div class="swiper-button-next"></div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="product-info">
+  <h1>{{ product.title }}</h1>
+  <p>{{ product.price | money }}</p>
+  <p>{{ product.description }}</p>
+</div>
+
+<div class="product-form">
+  {% form 'product', product %}
+    {% assign current_variant = product.selected_or_first_available_variant %}
+
+    <select name="id" id="variant-select">
+      {% for variant in product.variants %}
+        <option
+          value="{{ variant.id }}"
+          data-color="{{ variant.option1 | escape }}"
+          {% if variant == current_variant %}
+            selected="selected"
+          {% endif %}
+        >
+          {{ variant.title }} - {{ variant.price | money }}
+        </option>
+      {% endfor %}
+    </select>
+
+    <input type="text" name="quantity" min="1" value="1">
+
+    <input type="submit" value="Add to cart">
+    {{ form | payment_button }}
+  {% endform %}
+</div>
+
+<!-- Accordion placeholder -->
+<div id="product-accordion">
+  {% assign accordion_titles = product.metafields.custom.accordion_titles | split: '|||' %}
+  {% assign accordion_descriptions = product.metafields.custom.accordion_descriptions | split: '|||' %}
+  {% assign multiopen = section.settings.accordion_multiopen %}
+  {% if accordion_titles.size > 0 and accordion_titles[0] != blank %}
+    <div class="accordion" data-multiopen="{{ multiopen }}">
+      {% for title in accordion_titles %}
+        {% assign idx = forloop.index0 %}
+        {% assign desc = accordion_descriptions[idx] %}
+        {% if title != blank and desc != blank %}
+          <div class="accordion-item">
+            <button class="accordion-title" type="button" aria-expanded="false">{{ title }}</button>
+            <div class="accordion-content" style="display:none;">{{ desc }}</div>
+          </div>
+        {% endif %}
+      {% endfor %}
+    </div>
+  {% endif %}
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    // Swiper init with breakpoints from schema
+    var swiper = new Swiper('#product-swiper', {
+      slidesPerView: {{ section.settings.slides_per_view_desktop | default: 1 }},
+      spaceBetween: {{ section.settings.space_between | default: 10 }},
+      pagination: {
+        el: '.swiper-pagination',
+        clickable: true,
+        enabled: {{ section.settings.show_pagination | default: true }}
+      },
+      navigation: {
+        nextEl: '.swiper-button-next',
+        prevEl: '.swiper-button-prev',
+        enabled: {{ section.settings.show_navigation | default: true }}
+      },
+      breakpoints: {
+        320: {
+          slidesPerView: {{ section.settings.slides_per_view_mobile | default: 1 }},
+          spaceBetween: {{ section.settings.space_between | default: 10 }}
+        },
+        768: {
+          slidesPerView: {{ section.settings.slides_per_view_tablet | default: 2 }},
+          spaceBetween: {{ section.settings.space_between | default: 10 }}
+        },
+        1024: {
+          slidesPerView: {{ section.settings.slides_per_view_desktop | default: 3 }},
+          spaceBetween: {{ section.settings.space_between | default: 10 }}
+        }
+      }
+    });
+
+    // Color filtering logic placeholder
+    document.getElementById('variant-select').addEventListener('change', function(e) {
+      var selectedColor = this.options[this.selectedIndex].getAttribute('data-color');
+      document.querySelectorAll('.swiper-slide').forEach(function(slide) {
+        var colors = slide.getAttribute('data-variant-colors');
+        if (!selectedColor || (colors && colors.includes(selectedColor))) {
+          slide.style.display = '';
+        } else {
+          slide.style.display = 'none';
+        }
+      });
+      swiper.update();
+    });
+
+    // Accordion logic
+    var accordion = document.querySelector('.accordion');
+    if (accordion) {
+      var multiopen = accordion.getAttribute('data-multiopen') === 'true';
+      accordion.querySelectorAll('.accordion-title').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          var content = btn.nextElementSibling;
+          var expanded = btn.getAttribute('aria-expanded') === 'true';
+          if (!multiopen) {
+            accordion.querySelectorAll('.accordion-title').forEach(function(otherBtn) {
+              otherBtn.setAttribute('aria-expanded', 'false');
+              otherBtn.nextElementSibling.style.display = 'none';
+            });
+          }
+          btn.setAttribute('aria-expanded', !expanded);
+          content.style.display = expanded ? 'none' : 'block';
+        });
+      });
+    }
+  });
+</script>
+
+{% schema %}
+{
+  "name": "t:general.product",
+  "settings": [
+    {
+      "type": "range",
+      "id": "slides_per_view_desktop",
+      "label": "Кількість слайдів на ПК",
+      "min": 1,
+      "max": 5,
+      "step": 1,
+      "default": 3
+    },
+    {
+      "type": "range",
+      "id": "slides_per_view_tablet",
+      "label": "Кількість слайдів на планшеті",
+      "min": 1,
+      "max": 4,
+      "step": 1,
+      "default": 2
+    },
+    {
+      "type": "range",
+      "id": "slides_per_view_mobile",
+      "label": "Кількість слайдів на мобільному",
+      "min": 1,
+      "max": 3,
+      "step": 1,
+      "default": 1
+    },
+    {
+      "type": "checkbox",
+      "id": "show_pagination",
+      "label": "Увімкнути пагінацію",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_navigation",
+      "label": "Увімкнути стрілки навігації",
+      "default": true
+    },
+    {
+      "type": "range",
+      "id": "space_between",
+      "label": "Відступ між слайдами (px)",
+      "min": 0,
+      "max": 50,
+      "step": 1,
+      "default": 10
+    },
+    {
+      "type": "checkbox",
+      "id": "accordion_multiopen",
+      "label": "Дозволити відкривати декілька accordion одночасно",
+      "default": false
+    }
+  ],
+  "disabled_on": {
+    "groups": ["header", "footer"]
+  }
+}
+{% endschema %}
